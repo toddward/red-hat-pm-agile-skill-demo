@@ -1,0 +1,26 @@
+{
+  "skill_name": "red-hat-agile-skill",
+  "evals": [
+    {
+      "id": 1,
+      "name": "insurance-portal",
+      "prompt": "We need to build a customer self-service portal for our insurance company. Customers should be able to file claims, check claim status, download policy documents, and update their personal information. We have about 50,000 active policyholders and a 3-month timeline. The backend is Java/Spring Boot, frontend is React.",
+      "expected_output": "A medium-sized agile project plan with 3-5 epics, each broken into stories and tasks. Each item should have specific DoD and intrinsic value. Should include a validation summary with risks and recommended iteration order.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "ecommerce-notifications",
+      "prompt": "Add real-time notifications to our existing e-commerce platform. Users need to know when their order ships, when there's a price drop on wishlisted items, and when their saved payment method is about to expire. We're using Node.js with PostgreSQL. This should be a 2-sprint effort.",
+      "expected_output": "A small agile project plan with 1-3 epics. Should use the abbreviated process (lighter discovery, abbreviated validation). Each story and task should still have DoD and intrinsic value.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "hr-migration",
+      "prompt": "Our company is migrating from a legacy on-premise HR system to a cloud-based platform. We have 5,000 employees across 12 countries, each with different labor law requirements. The current system handles payroll, time tracking, benefits enrollment, and performance reviews. We need to migrate everything without disrupting payroll cycles. Budget is approved for 6 months with a team of 8.",
+      "expected_output": "A large, complex agile project plan with 5+ epics. Should run the full 3-phase process with deep discovery (labor law constraints as fundamental truths), full dialectical elaboration, and complete 5-hat validation. Should surface migration risks prominently and recommend phasing.",
+      "files": []
+    }
+  ]
+}

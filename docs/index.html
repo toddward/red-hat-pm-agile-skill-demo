@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The PM Aggregation Problem — A Cursor + Red Hat Agile Skill Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/@rhds/tokens@3.0.2/css/global.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700;900&family=Red+Hat+Text:wght@400;500;700&family=Red+Hat+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    /* === RESET & BASE === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { color-scheme: dark; }
+
+    /* === COLOR VARIABLES — Core Dark === */
+    :root {
+      --bg-primary: #000000;
+      --bg-secondary: #1f1f1f;
+      --bg-surface: #292929;
+      --text-primary: #ffffff;
+      --text-secondary: #c7c7c7;
+      --text-muted: #a3a3a3;
+      --accent: #ee0000;
+      --accent-dark: #a60000;
+      --accent-light: #f56e6e;
+      --tag-border: #383838;
+      --icon-filter: brightness(0) invert(1);
+      --icon-filter-accent: invert(12%) sepia(100%) saturate(10000%) hue-rotate(0deg) brightness(95%);
+      --font-display: var(--rh-font-family-heading, 'Red Hat Display', sans-serif);
+      --font-body: var(--rh-font-family-body-text, 'Red Hat Text', sans-serif);
+      --font-mono: var(--rh-font-family-code, 'Red Hat Mono', monospace);
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* === LOGO === */
+    .rh-logo { height: 28px; width: auto; }
+    .rh-logo.small { height: 20px; }
+    .rh-logo.large { height: 40px; }
+
+    /* === ICON STYLES === */
+    .rh-icon { height: 48px; width: 48px; filter: var(--icon-filter); vertical-align: middle; }
+    .rh-icon.small  { height: 24px; width: 24px; }
+    .rh-icon.medium { height: 48px; width: 48px; }
+    .rh-icon.large  { height: 64px; width: 64px; }
+    .rh-icon.xl     { height: 96px; width: 96px; }
+    .rh-icon.accent { filter: var(--icon-filter-accent); }
+
+    /* === DECK & SLIDES === */
+    .deck { position: relative; width: 100vw; height: 100vh; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: var(--rh-space-4xl, 80px) var(--rh-space-3xl, 64px);
+      background: var(--bg-primary);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .slide.active { display: flex; }
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(238,0,0,0.10) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .slide > * { position: relative; z-index: 1; }
+
+    /* === BREADCRUMB === */
+    .breadcrumb {
+      position: absolute;
+      top: var(--rh-space-2xl, 48px);
+      left: var(--rh-space-3xl, 64px);
+      display: flex;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+    .breadcrumb svg + span { margin-left: var(--rh-space-sm, 8px); }
+
+    /* === SLIDE LABELS & ATTRIBUTION === */
+    .slide-label {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: var(--rh-space-lg, 24px);
+    }
+    .attribution {
+      position: absolute;
+      bottom: var(--rh-space-2xl, 48px);
+      left: var(--rh-space-3xl, 64px);
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-sm, 0.875rem);
+      color: var(--text-muted);
+      z-index: 2;
+    }
+    .source {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-top: var(--rh-space-xl, 32px);
+    }
+
+    /* === HEADLINES === */
+    .headline-xl {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: clamp(3rem, 6vw, var(--rh-font-size-heading-2xl, 4.5rem));
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+    .headline-lg {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: clamp(2rem, 4.5vw, 3.25rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+    .headline-md {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(1.5rem, 2.5vw, var(--rh-font-size-heading-md, 1.75rem));
+      line-height: 1.2;
+      color: var(--text-primary);
+    }
+    .accent { color: var(--accent); }
+    .accent-italic { color: var(--accent); font-style: italic; }
+
+    /* === BODY TEXT === */
+    .subtitle {
+      font-family: var(--font-body);
+      font-size: clamp(1rem, 1.4vw, var(--rh-font-size-body-text-xl, 1.25rem));
+      line-height: 1.5;
+      color: var(--text-secondary);
+      max-width: 820px;
+      margin-top: var(--rh-space-lg, 24px);
+    }
+    .body-text {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-lg, 1.125rem);
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 820px;
+    }
+
+    /* === TAGS === */
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--rh-space-sm, 8px);
+      margin-top: var(--rh-space-xl, 32px);
+    }
+    .tag {
+      display: inline-block;
+      padding: var(--rh-space-xs, 4px) var(--rh-space-md, 16px);
+      border: var(--rh-border-width-sm, 1px) solid var(--tag-border);
+      border-radius: var(--rh-border-radius-pill, 64px);
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .tag.accent { border-color: var(--accent); color: var(--accent); }
+
+    /* === TITLE SLIDE === */
+    .title-slide { justify-content: center; }
+    .title-slide .headline-xl { max-width: 1100px; }
+
+    /* === BIG NUMBER === */
+    .big-number-row {
+      display: flex;
+      gap: var(--rh-space-4xl, 80px);
+      margin-top: var(--rh-space-2xl, 48px);
+      flex-wrap: wrap;
+    }
+    .big-number-block { display: flex; flex-direction: column; min-width: 180px; }
+    .big-number {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: clamp(4.5rem, 8vw, 7.5rem);
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+    }
+    .big-number-context {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-md, 1rem);
+      color: var(--text-secondary);
+      margin-top: var(--rh-space-sm, 8px);
+      max-width: 240px;
+      line-height: 1.4;
+    }
+
+    /* === BULLET LIST === */
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--rh-space-md, 16px);
+      margin-top: var(--rh-space-xl, 32px);
+      max-width: 900px;
+    }
+    .bullet-list li {
+      position: relative;
+      padding-left: var(--rh-space-lg, 24px);
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-lg, 1.125rem);
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .bullet-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.7em;
+      width: 14px;
+      height: 2px;
+      background: var(--accent);
+    }
+    .bullet-list li strong { color: var(--text-primary); font-weight: 700; }
+
+    /* === COMPARE GRID === */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--rh-space-xl, 32px);
+      margin-top: var(--rh-space-xl, 32px);
+    }
+    .compare-col {
+      padding: var(--rh-space-lg, 24px);
+      background: rgba(41,41,41,0.5);
+      border: var(--rh-border-width-sm, 1px) solid var(--tag-border);
+      border-radius: var(--rh-border-radius-default, 3px);
+    }
+    .compare-col.winner { border-color: var(--accent); background: rgba(238,0,0,0.06); }
+    .compare-col .lead {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: var(--rh-space-md, 16px);
+    }
+    .compare-col.winner .lead { color: var(--accent); }
+    .compare-col h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: var(--rh-font-size-heading-sm, 1.25rem);
+      color: var(--text-primary);
+      margin-bottom: var(--rh-space-md, 16px);
+    }
+    .compare-col p {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-md, 1rem);
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .compare-col strong { color: var(--text-primary); }
+
+    /* === ARCH STACK === */
+    .arch-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rh-space-sm, 8px);
+      margin-top: var(--rh-space-xl, 32px);
+      max-width: 900px;
+    }
+    .arch-layer {
+      padding: var(--rh-space-md, 16px) var(--rh-space-lg, 24px);
+      background: rgba(41,41,41,0.6);
+      border: var(--rh-border-width-sm, 1px) solid var(--tag-border);
+      border-radius: var(--rh-border-radius-default, 3px);
+    }
+    .arch-layer.os-added { border-color: var(--accent); background: rgba(238,0,0,0.08); }
+    .arch-layer .arch-tag {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: var(--rh-space-xs, 4px);
+    }
+    .arch-layer.os-added .arch-tag { color: var(--accent); }
+    .arch-layer h4 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: var(--rh-font-size-heading-sm, 1.25rem);
+      color: var(--text-primary);
+      margin-bottom: var(--rh-space-xs, 4px);
+    }
+    .arch-layer p {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-sm, 0.875rem);
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+    .arch-arrow {
+      text-align: center;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    /* === PROOF GRID (4 dimensions of value) === */
+    .proof-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--rh-space-md, 16px);
+      margin-top: var(--rh-space-xl, 32px);
+    }
+    .proof-card {
+      padding: var(--rh-space-lg, 24px);
+      background: rgba(41,41,41,0.5);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--rh-border-radius-default, 3px);
+    }
+    .proof-card .proof-title {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-xs, 0.75rem);
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: var(--rh-space-sm, 8px);
+    }
+    .proof-card h4 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: var(--rh-font-size-heading-sm, 1.125rem);
+      color: var(--text-primary);
+      margin-bottom: var(--rh-space-sm, 8px);
+    }
+    .proof-card p {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-sm, 0.875rem);
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    /* === QUOTE === */
+    .quote {
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      line-height: 1.25;
+      color: var(--text-primary);
+      max-width: 1000px;
+      position: relative;
+      padding-left: var(--rh-space-xl, 32px);
+    }
+    .quote::before {
+      content: '\201C';
+      position: absolute;
+      left: -10px;
+      top: -40px;
+      font-size: 8rem;
+      color: var(--accent);
+      opacity: 0.5;
+      font-family: var(--font-display);
+      line-height: 1;
+    }
+    .quote-attribution {
+      font-family: var(--font-mono);
+      font-size: var(--rh-font-size-body-text-sm, 0.875rem);
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-top: var(--rh-space-lg, 24px);
+      padding-left: var(--rh-space-xl, 32px);
+    }
+
+    /* === CTA / NEXT STEPS === */
+    .cta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--rh-space-lg, 24px);
+      margin-top: var(--rh-space-2xl, 48px);
+      max-width: 1100px;
+    }
+    .cta-step {
+      padding: var(--rh-space-lg, 24px);
+      background: rgba(41,41,41,0.5);
+      border: var(--rh-border-width-sm, 1px) solid var(--tag-border);
+      border-radius: var(--rh-border-radius-default, 3px);
+    }
+    .cta-step .step-num {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 2.5rem;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: var(--rh-space-sm, 8px);
+    }
+    .cta-step h4 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: var(--rh-font-size-heading-sm, 1.125rem);
+      color: var(--text-primary);
+      margin-bottom: var(--rh-space-sm, 8px);
+    }
+    .cta-step p {
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-sm, 0.875rem);
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+    .cta-step code {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: var(--bg-secondary);
+      padding: 2px 6px;
+      border-radius: 2px;
+      color: var(--accent-light);
+    }
+
+    /* === THANK YOU SLIDE === */
+    .thank-you-slide {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .thank-you-slide::before {
+      width: 80%;
+      height: 80%;
+      top: -10%;
+      right: -20%;
+      background: radial-gradient(ellipse, rgba(238,0,0,0.18) 0%, transparent 70%);
+    }
+    .thank-you-slide .author-block {
+      margin-top: var(--rh-space-2xl, 48px);
+      font-family: var(--font-body);
+      color: var(--text-secondary);
+    }
+    .thank-you-slide .author-block .name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: var(--rh-font-size-heading-sm, 1.25rem);
+      color: var(--text-primary);
+      margin-bottom: var(--rh-space-xs, 4px);
+    }
+    .logo-footer { margin-top: var(--rh-space-2xl, 48px); }
+
+    /* === CONTROLS === */
+    .controls {
+      position: fixed;
+      bottom: var(--rh-space-md, 16px);
+      right: var(--rh-space-lg, 24px);
+      display: flex;
+      align-items: center;
+      gap: var(--rh-space-lg, 24px);
+      z-index: 10;
+    }
+    .nav-hint {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .progress {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .progress .current { color: var(--accent); font-weight: 700; }
+
+    /* === NOTES PANEL === */
+    .notes-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(20,20,20,0.97);
+      border-top: 2px solid var(--accent);
+      padding: var(--rh-space-lg, 24px) var(--rh-space-3xl, 64px);
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      z-index: 20;
+      max-height: 40vh;
+      overflow-y: auto;
+      font-family: var(--font-body);
+      font-size: var(--rh-font-size-body-text-md, 1rem);
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+    .notes-panel.visible { transform: translateY(0); }
+    .notes-panel a { color: var(--accent-light); }
+    .notes-panel strong { color: var(--text-primary); }
+
+    /* === ANIMATIONS === */
+    .slide.active .animate-in { animation: fadeSlideUp 0.6s ease-out forwards; opacity: 0; }
+    .slide.active .animate-in:nth-child(1) { animation-delay: 0.05s; }
+    .slide.active .animate-in:nth-child(2) { animation-delay: 0.15s; }
+    .slide.active .animate-in:nth-child(3) { animation-delay: 0.25s; }
+    .slide.active .animate-in:nth-child(4) { animation-delay: 0.35s; }
+    .slide.active .animate-in:nth-child(5) { animation-delay: 0.45s; }
+    .slide.active .animate-in:nth-child(6) { animation-delay: 0.55s; }
+    .slide.active .animate-in:nth-child(7) { animation-delay: 0.65s; }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === PRINT PREVIEW HYGIENE === */
+    body.printing .deck { visibility: hidden; }
+
+    /* === PRINT / PDF EXPORT === */
+    @media print {
+      body.printing .deck,
+      body.printing .slide { visibility: visible !important; }
+
+      @page { size: 13.33in 7.5in; margin: 0; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      html, body {
+        height: auto !important;
+        width: auto !important;
+        overflow: visible !important;
+        background: var(--bg-primary) !important;
+      }
+      .deck {
+        height: auto !important; width: auto !important;
+        position: static !important; overflow: visible !important;
+        background: var(--bg-primary) !important;
+      }
+      .slide {
+        display: flex !important;
+        position: relative !important;
+        inset: auto !important;
+        width: 13.33in !important;
+        height: 7.5in !important;
+        padding: 0.55in 0.85in !important;
+        gap: 0.14in !important;
+        box-sizing: border-box !important;
+        break-after: page;
+        page-break-after: always;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: hidden !important;
+        background: var(--bg-primary) !important;
+      }
+      .slide:last-child { break-after: auto; page-break-after: auto; }
+
+      .headline-xl { font-size: 60pt !important; line-height: 1.05 !important; letter-spacing: -0.02em; }
+      .headline-lg { font-size: 42pt !important; line-height: 1.05 !important; letter-spacing: -0.02em; }
+      .headline-md { font-size: 22pt !important; line-height: 1.15 !important; }
+      .subtitle, .body-text { font-size: 13pt !important; line-height: 1.45 !important; }
+      .big-number { font-size: 110pt !important; line-height: 0.9 !important; letter-spacing: -0.03em; }
+      .quote { font-size: 26pt !important; line-height: 1.2 !important; }
+      .slide-label, .breadcrumb { font-size: 10pt !important; letter-spacing: 0.1em; }
+      .attribution, .source, .nav-hint,
+      .arch-layer .arch-tag, .compare-col .lead, .proof-card .proof-title,
+      .quote-attribution, .tag, .big-number-context { font-size: 9pt !important; }
+
+      .bullet-list { gap: 10pt !important; max-width: none !important; }
+      .bullet-list li {
+        padding-left: 18pt !important;
+        font-size: 12pt !important;
+        line-height: 1.45 !important;
+      }
+      .bullet-list li::before {
+        content: '' !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0.7em !important;
+        width: 10pt !important;
+        height: 2pt !important;
+        background: #ee0000 !important;
+        border-radius: 0 !important;
+      }
+
+      .compare-grid, .proof-grid { gap: 0.18in !important; }
+      .compare-col, .proof-card { padding: 0.2in !important; }
+      .arch-layer { padding: 0.12in 0.2in !important; }
+      .arch-stack { gap: 2pt !important; margin-top: 0.1in !important; }
+      .arch-layer .arch-tag { margin-bottom: 0 !important; }
+      .arch-layer h4 { font-size: 11pt !important; line-height: 1.15 !important; margin-bottom: 2pt !important; }
+      .arch-layer p { font-size: 9pt !important; line-height: 1.3 !important; }
+      .arch-arrow { font-size: 11pt !important; line-height: 1 !important; }
+
+      .breadcrumb { top: 0.4in !important; left: 0.85in !important; }
+      .attribution { bottom: 0.4in !important; left: 0.85in !important; }
+
+      .slide .animate-in,
+      .slide.active .animate-in {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+
+      .controls, .nav-hint, .notes-panel { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+
+    <!-- ========== SLIDE 1: TITLE ========== -->
+    <div class="slide title-slide active" data-notes="<strong>Welcome.</strong> This deck introduces the PM Agile Skill Demo — a working example of how a project manager uses Cursor as an orchestration layer to pull scattered project artifacts (emails, meeting transcripts, roadmap PDFs) into a structured, value-driven agile plan.<br><br><strong>Tips:</strong> Arrow keys or click to navigate · Press <strong>N</strong> to toggle these contextual notes · Use fullscreen (F11) for the cleanest view.<br><br>[IMAGE OPPORTUNITY] Prompt for Nano Banana Pro 2: <em>'Abstract dark composition of scattered paper documents, email windows, and meeting transcripts swirling and converging toward a single glowing red focal point representing structured order. Cinematic dark background, subtle Red Hat red (#ee0000) accents, no text, 16:9 aspect ratio, atmospheric depth, suitable for a title slide background.'</em>">
+      <div class="breadcrumb animate-in">
+        <svg class="rh-logo small" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 613 145" role="img" aria-label="Red Hat">
+          <title>Red Hat</title>
+          <path d="M127.47,83.49c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C124.89,8.69,103.76.5,97.51.5,91.69.5,90,8,83.06,8c-6.68,0-11.64-5.6-17.89-5.6-6,0-9.91,4.09-12.93,12.5,0,0-8.41,23.72-9.49,27.16A6.43,6.43,0,0,0,42.53,44c0,9.22,36.3,39.45,84.94,39.45M160,72.07c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C78.54,104,37.58,76.6,37.58,58.49a18.45,18.45,0,0,1,1.51-7.33C22.27,52,.5,55,.5,74.22c0,31.48,74.59,70.28,133.65,70.28,45.28,0,56.7-20.48,56.7-36.65,0-12.72-11-27.16-30.83-35.78" fill="#e00"/>
+          <path d="M160,72.07c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C78.54,104,37.58,76.6,37.58,58.49a18.45,18.45,0,0,1,1.51-7.33l3.66-9.06A6.43,6.43,0,0,0,42.53,44c0,9.22,36.3,39.45,84.94,39.45,12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42Z"/>
+          <path d="M579.74,92.8c0,11.89,7.15,17.67,20.19,17.67a52.11,52.11,0,0,0,11.89-1.68V95a24.84,24.84,0,0,1-7.68,1.16c-5.37,0-7.36-1.68-7.36-6.73V68.3h15.56V54.1H596.78v-18l-17,3.68V54.1H568.49V68.3h11.25Zm-53,.32c0-3.68,3.69-5.47,9.26-5.47a43.12,43.12,0,0,1,10.1,1.26v7.15a21.51,21.51,0,0,1-10.63,2.63c-5.46,0-8.73-2.1-8.73-5.57m5.2,17.56c6,0,10.84-1.26,15.36-4.31v3.37h16.82V74.08c0-13.56-9.14-21-24.39-21-8.52,0-16.94,2-26,6.1l6.1,12.52c6.52-2.74,12-4.42,16.83-4.42,7,0,10.62,2.73,10.62,8.31v2.73a49.53,49.53,0,0,0-12.62-1.58c-14.31,0-22.93,6-22.93,16.73,0,9.78,7.78,17.24,20.19,17.24m-92.44-.94h18.09V80.92h30.29v28.82H506V36.12H487.93V64.41H457.64V36.12H439.55ZM370.62,81.87c0-8,6.31-14.1,14.62-14.1A17.22,17.22,0,0,1,397,72.09V91.54A16.36,16.36,0,0,1,385.24,96c-8.2,0-14.62-6.1-14.62-14.09m26.61,27.87h16.83V32.44l-17,3.68V57.05a28.3,28.3,0,0,0-14.2-3.68c-16.19,0-28.92,12.51-28.92,28.5a28.25,28.25,0,0,0,28.4,28.6,25.12,25.12,0,0,0,14.93-4.83ZM320,67c5.36,0,9.88,3.47,11.67,8.83H308.47C310.15,70.3,314.36,67,320,67M291.33,82c0,16.2,13.25,28.82,30.28,28.82,9.36,0,16.2-2.53,23.25-8.42l-11.26-10c-2.63,2.74-6.52,4.21-11.14,4.21a14.39,14.39,0,0,1-13.68-8.83h39.65V83.55c0-17.67-11.88-30.39-28.08-30.39a28.57,28.57,0,0,0-29,28.81M262,51.58c6,0,9.36,3.78,9.36,8.31S268,68.2,262,68.2H244.11V51.58Zm-36,58.16h18.09V82.92h13.77l13.89,26.82H292l-16.2-29.45a22.27,22.27,0,0,0,13.88-20.72c0-13.25-10.41-23.45-26-23.45H226Z" fill="#fff"/>
+        </svg>
+        <span>› Project Management Demo</span>
+      </div>
+
+      <div class="slide-label animate-in">—— DEMO BRIEFING · MAY 2026</div>
+      <h1 class="headline-xl animate-in">
+        Your Plan Is <span class="accent-italic">Trapped</span><br>
+        Inside Twenty-One Emails.
+      </h1>
+      <p class="subtitle animate-in">
+        A working demo of how a project manager uses Cursor and the Red Hat
+        Agile Skill to pull scattered artifacts together and draft a rigorous,
+        value-driven plan — without losing the signal in the noise.
+      </p>
+
+      <div class="tag-row animate-in">
+        <span class="tag accent">Cursor-Orchestrated</span>
+        <span class="tag">Multi-Source Aggregation</span>
+        <span class="tag">Definition of Done</span>
+        <span class="tag">Intrinsic Value</span>
+      </div>
+
+      <div class="attribution animate-in">Todd Wardzinski · Architect · Red Hat</div>
+    </div>
+
+    <!-- ========== SLIDE 2: THE REALITY ========== -->
+    <div class="slide" data-notes="These numbers come from a single real engagement — the <strong>Hartwell Logistics × Red Hat OpenShift Platform Modernization</strong> project that ships with this demo. Look in <code>artifacts/</code> and you'll see all of it: 21 numbered email PDFs, two long meeting transcripts (kickoff + the May 21 hardware-pivot replan), and the current roadmap PDF. <br><br>This is what a PM's reality looks like for <em>one</em> mid-sized engagement. Multiply it across a portfolio and the aggregation problem becomes the job.<br><br>[IMAGE OPPORTUNITY] Prompt for Nano Banana Pro 2: <em>'Cinematic dark scene of a desk overflowing with overlapping printed emails, sticky notes, and meeting transcripts. Subtle red accent lighting from above. No text legible. 16:9, atmospheric, slightly chaotic but composed.'</em>">
+      <div class="slide-label animate-in">—— THE PM'S REALITY</div>
+      <h2 class="headline-lg animate-in">One engagement. <span class="accent">Twenty-four artifacts.</span></h2>
+      <p class="body-text animate-in" style="margin-top: var(--rh-space-md, 16px);">
+        Below is the artifact inventory for a single Red Hat consulting engagement —
+        the OpenShift platform modernization at Hartwell Logistics — captured in the
+        <code style="font-family: var(--font-mono); color: var(--accent-light);">artifacts/</code>
+        directory of this very repo.
+      </p>
+
+      <div class="big-number-row animate-in">
+        <div class="big-number-block">
+          <div class="big-number">21</div>
+          <div class="big-number-context">Email PDFs across SoW, kickoff, and a mid-flight hardware pivot</div>
+        </div>
+        <div class="big-number-block">
+          <div class="big-number">2</div>
+          <div class="big-number-context">Long-form meeting transcripts — kickoff and replan</div>
+        </div>
+        <div class="big-number-block">
+          <div class="big-number">1</div>
+          <div class="big-number-context">Living roadmap PDF, already on revision two</div>
+        </div>
+        <div class="big-number-block">
+          <div class="big-number">~10</div>
+          <div class="big-number-context">Stakeholders named across both organizations</div>
+        </div>
+      </div>
+
+      <p class="source animate-in">Source: <code style="font-family: var(--font-mono);">artifacts/</code> directory in this demo repo · May 2026 snapshot</p>
+    </div>
+
+    <!-- ========== SLIDE 3: WHAT GETS LOST ========== -->
+    <div class="slide" data-notes="The cost of manual aggregation isn't time — it's <strong>fidelity loss</strong>. Decisions made in a Tuesday email thread get re-litigated in a Friday meeting. A scope change agreed in transcript page 14 never makes it into the roadmap. The PM ends up as a human cache, and when they're out for a week, the cache evicts.<br><br>The Hartwell engagement saw a hardware pivot mid-flight — the May 21 meeting transcript captures the rationale. If that rationale doesn't propagate into the new plan, the team rebuilds the wrong thing twice.">
+      <div class="slide-label animate-in">—— WHAT MANUAL AGGREGATION COSTS</div>
+      <h2 class="headline-lg animate-in">The signal hides in the <span class="accent">last reply</span>.</h2>
+
+      <ul class="bullet-list animate-in">
+        <li><strong>Decisions live in email thread #14</strong>, not in the roadmap. The plan ages out the moment someone hits Reply.</li>
+        <li><strong>Scope pivots surface in transcript page 8.</strong> The "why" rarely propagates to the artifact that the team actually executes from.</li>
+        <li><strong>"Done" gets fuzzy.</strong> Without explicit acceptance criteria, three engineers will agree the story is shipped and disagree about whether it works.</li>
+        <li><strong>Stories don't ladder to value.</strong> Items get prioritized by who asked loudest, not by the user impact, business outcome, or learning they generate.</li>
+        <li><strong>The PM becomes the cache.</strong> Context lives in their head. If they're on PTO, the team rebuilds it from scratch.</li>
+      </ul>
+    </div>
+
+    <!-- ========== SLIDE 4: THE QUOTE / TENSION ========== -->
+    <div class="slide" data-notes="This is the tension the demo is built to resolve. Aggregation has historically been treated as administrative work — but in modern engagements it's the most leverage-rich activity a PM does. Whoever can compress dispersed artifacts into a single, auditable plan owns the outcome.<br><br>[MEME OPPORTUNITY] A 'They don't know I'm reading every email thread to write the plan' meme could land well here as a tension-breaker before the resolution slide.">
+      <div class="slide-label animate-in">—— THE TENSION</div>
+      <blockquote class="quote animate-in">
+        Project management is now ninety percent <span class="accent">aggregation</span>
+        and ten percent allocation — but our tools were built for the
+        opposite ratio.
+      </blockquote>
+      <div class="quote-attribution animate-in">— The premise behind this demo</div>
+    </div>
+
+    <!-- ========== SLIDE 5: WHAT THE DEMO IS ========== -->
+    <div class="slide" data-notes="The demo is intentionally minimal: a directory of realistic artifacts, a Claude skill that knows how to plan, and Cursor as the orchestration surface. Anyone can clone it, point Cursor at it, and run the same workflow against their own engagement.<br><br>The Red Hat Agile Skill (in <code>.claude/skills/red-hat-agile-skill/</code>) does the heavy thinking. Cursor is the place the PM <em>lives</em> — files in the side panel, AI in the chat, plan in the editor. No context-switching to a separate planning tool.">
+      <div class="slide-label animate-in">—— WHAT THIS DEMO IS</div>
+      <h2 class="headline-lg animate-in">A PM workspace, <span class="accent">orchestrated by Cursor.</span></h2>
+      <p class="subtitle animate-in">
+        Three pieces, working together. Cursor is the surface the PM works in;
+        Claude does the reasoning; the Red Hat Agile Skill provides the
+        discipline.
+      </p>
+
+      <div class="arch-stack animate-in">
+        <div class="arch-layer">
+          <div class="arch-tag">Layer 1 · Inputs</div>
+          <h4>The artifacts/ directory</h4>
+          <p>Twenty-one emails, two transcripts, one roadmap. The same scattered evidence a PM would receive in a real engagement.</p>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer os-added">
+          <div class="arch-tag">Layer 2 · Orchestrator</div>
+          <h4>Cursor</h4>
+          <p>The PM's editor. Reads the artifacts, hands them to Claude with the right skill loaded, surfaces the plan inline. No separate planning tool to switch into.</p>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer">
+          <div class="arch-tag">Layer 3 · Discipline</div>
+          <h4>The Red Hat Agile Skill</h4>
+          <p>Three thinking frameworks running as multi-agent teams — turning raw context into Epics, Stories, and Tasks with explicit Definition of Done and Intrinsic Value.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SLIDE 6: HOW CURSOR ORCHESTRATES ========== -->
+    <div class="slide" data-notes="Cursor's role here is the part PMs underestimate. The AI does the thinking, but Cursor is what makes the workflow <em>tractable</em> — it gives the PM a single window where the source artifacts, the conversation with Claude, and the resulting plan all live side by side.<br><br>This matters because PMs don't work in a single tool today. They flip between Outlook, Confluence, Jira, Slack, the SoW PDF, and a notes app. The cognitive overhead of context-switching is the silent tax. Cursor collapses it.">
+      <div class="slide-label animate-in">—— THE ORCHESTRATION LAYER</div>
+      <h2 class="headline-lg animate-in">Cursor reads <span class="accent">everything</span>, the PM stays in <span class="accent">one window</span>.</h2>
+
+      <div class="compare-grid animate-in">
+        <div class="compare-col">
+          <div class="lead">Without Cursor</div>
+          <h3>Six tabs and a notes file</h3>
+          <p>The PM opens Outlook, the SoW in Acrobat, the roadmap in Lucid, the meeting recording in Zoom, Confluence, and a scratch doc. They re-type the synthesis by hand. Half the signal is lost in transit.</p>
+        </div>
+        <div class="compare-col winner">
+          <div class="lead">With Cursor</div>
+          <h3>One workspace, full visibility</h3>
+          <p>Cursor reads the entire <strong>artifacts/</strong> directory, holds it in the working context, hands the right slice to Claude when the skill runs, and writes the resulting plan back into the repo. The PM reviews, edits, and commits.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SLIDE 7: INSIDE THE SKILL ========== -->
+    <div class="slide" data-notes="The Red Hat Agile Skill isn't a single prompt — it's a structured three-phase pipeline where each phase uses a different thinking framework as a multi-agent team.<br><br><strong>First Principles</strong> (Discovery) includes a deliberate information barrier: the agent that builds the epic structure cannot see the original project description, which prevents it from inheriting biased framing.<br><br><strong>Dialectical</strong> (Elaboration) runs Advocate → Challenger → Integrator on each Epic. The Challenger tests every story against INVEST criteria.<br><br><strong>Six Hats</strong> (Validation) runs White (facts), Black (risk), Yellow (value), Red (intuition), Blue (synthesis) over the complete plan before delivery.<br><br>Full skill source: <code>.claude/skills/red-hat-agile-skill/SKILL.md</code>">
+      <div class="slide-label animate-in">—— INSIDE THE SKILL</div>
+      <h2 class="headline-lg animate-in">Three phases. <span class="accent">Three thinking frameworks.</span></h2>
+      <p class="subtitle animate-in">
+        Each phase runs structured agents with deliberate information barriers,
+        so the plan emerges from real user needs — not from how the project was
+        originally described.
+      </p>
+
+      <div class="arch-stack animate-in">
+        <div class="arch-layer">
+          <div class="arch-tag">Phase 1 · First Principles</div>
+          <h4>Discovery — strip to fundamentals, rebuild epics from bedrock</h4>
+          <p>Vision Archaeologist → Scope Architect → Coverage Evaluator. The Architect cannot see the original brief, which prevents inherited assumptions.</p>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer">
+          <div class="arch-tag">Phase 2 · Dialectical</div>
+          <h4>Elaboration — debate the story breakdown, then integrate</h4>
+          <p>Advocate proposes, Challenger tests against INVEST, Integrator resolves. Then a Task Decomposer breaks each story into 1–3 day units with DoD.</p>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer os-added">
+          <div class="arch-tag">Phase 3 · Six Thinking Hats</div>
+          <h4>Validation — stress-test the complete plan from every angle</h4>
+          <p>White (facts) · Black (risk) · Yellow (value) · Red (intuition) · Blue (synthesis). The plan ships only after all five passes.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SLIDE 8: THE OUTPUT ========== -->
+    <div class="slide" data-notes="Every Epic, Story, and Task the skill produces carries two non-negotiable artifacts: a rigorous <strong>Definition of Done</strong> (observable, unambiguous, measurable, complete) and an <strong>Intrinsic Value</strong> statement across four dimensions.<br><br>The four-dimension rule has a useful side effect: if a work item scores zero on all four dimensions, it probably shouldn't exist. This becomes a built-in pruning mechanism that keeps backlogs honest.">
+      <div class="slide-label animate-in">—— THE OUTPUT</div>
+      <h2 class="headline-lg animate-in">Every item ladders to <span class="accent">value</span>. Every item has a <span class="accent">defensible "done."</span></h2>
+
+      <div class="proof-grid animate-in">
+        <div class="proof-card">
+          <div class="proof-title">Dimension 1</div>
+          <h4>User Impact</h4>
+          <p>How does this directly improve a user's day? <em>"Hartwell developers can self-serve namespaces without a ticket."</em></p>
+        </div>
+        <div class="proof-card">
+          <div class="proof-title">Dimension 2</div>
+          <h4>Business Impact</h4>
+          <p>What outcome does this unlock? <em>"Hardware-pivot CO countersigned, scope risk closed."</em></p>
+        </div>
+        <div class="proof-card">
+          <div class="proof-title">Dimension 3</div>
+          <h4>Technical Impact</h4>
+          <p>What capability does this build? <em>"ACM hub manages both ROSA bridge and bare-metal target."</em></p>
+        </div>
+        <div class="proof-card">
+          <div class="proof-title">Dimension 4</div>
+          <h4>Learning Impact</h4>
+          <p>What uncertainty does this kill? <em>"Day-45 tabletop validates Sofia owns Sev-1 path."</em></p>
+        </div>
+      </div>
+
+      <p class="source animate-in">Each Definition of Done is observable, unambiguous, measurable, and complete — covering edge cases, not just the happy path.</p>
+    </div>
+
+    <!-- ========== SLIDE 9: WHY IT MATTERS ========== -->
+    <div class="slide" data-notes="The point isn't 'AI writes plans for PMs.' The point is that the aggregation tax — the work of pulling signal from twenty-one emails and two transcripts into a single coherent plan — is finally delegable. The PM stays in the loop on judgment, trade-offs, and stakeholder relationships. The repetitive synthesis work moves to the orchestration layer.<br><br>Concretely, on the Hartwell engagement: the May 21 hardware pivot rewrote half the roadmap. With this workflow, that replan happens in an afternoon — not over two weeks of email threads and re-meetings.">
+      <div class="slide-label animate-in">—— WHY IT MATTERS</div>
+      <h2 class="headline-lg animate-in">The aggregation tax is finally <span class="accent">delegable.</span></h2>
+
+      <ul class="bullet-list animate-in">
+        <li><strong>Replans collapse from weeks to an afternoon.</strong> When scope shifts mid-flight, the PM re-runs the skill against the updated artifacts and gets a refreshed plan with intact rationale.</li>
+        <li><strong>"Done" stops being a debate.</strong> Every story carries observable, measurable acceptance criteria the team can verify without the PM in the room.</li>
+        <li><strong>Backlogs prune themselves.</strong> Items that score zero on all four value dimensions get flagged for removal — the framework does the political work.</li>
+        <li><strong>The PM does the work only PMs can do.</strong> Stakeholder judgment, trade-offs, sequencing instinct. The synthesis grunt-work moves elsewhere.</li>
+      </ul>
+    </div>
+
+    <!-- ========== SLIDE 10: TRY IT YOURSELF / CTA ========== -->
+    <div class="slide" data-notes="Everything you need to run the demo is in this repo. Open it in Cursor, ask Claude to plan the Hartwell engagement using the Red Hat Agile Skill, and watch the three phases run against the artifacts in the side panel.<br><br>If you want to point it at your own engagement: drop your emails, transcripts, and current planning docs into the <code>artifacts/</code> directory and ask Claude to run the same flow. The skill is project-agnostic.">
+      <div class="slide-label animate-in">—— TRY IT</div>
+      <h2 class="headline-lg animate-in">Three steps to run the demo <span class="accent">end to end.</span></h2>
+
+      <div class="cta-grid animate-in">
+        <div class="cta-step">
+          <div class="step-num">01</div>
+          <h4>Open the repo in Cursor</h4>
+          <p>Point Cursor at <code>pm_agile_skill_demo/</code>. The <code>artifacts/</code> directory holds the full Hartwell engagement.</p>
+        </div>
+        <div class="cta-step">
+          <div class="step-num">02</div>
+          <h4>Ask Claude to plan</h4>
+          <p>"Read the artifacts and build me an agile plan using the Red Hat Agile Skill." The three phases run automatically.</p>
+        </div>
+        <div class="cta-step">
+          <div class="step-num">03</div>
+          <h4>Review, edit, commit</h4>
+          <p>The plan lands in the repo with Epics, Stories, Tasks, DoD, and value statements. Edit anything, then commit. Re-run when scope shifts.</p>
+        </div>
+      </div>
+
+      <p class="source animate-in">Skill source: <code style="font-family: var(--font-mono);">.claude/skills/red-hat-agile-skill/SKILL.md</code> · Artifacts: <code style="font-family: var(--font-mono);">artifacts/</code></p>
+    </div>
+
+    <!-- ========== SLIDE 11: THANK YOU ========== -->
+    <div class="slide thank-you-slide" data-notes="Thanks for walking through the demo. Open the repo in Cursor and try the workflow against the Hartwell artifacts — or against your own engagement.">
+      <div class="slide-label animate-in" style="text-align: center;">—— END</div>
+      <h1 class="headline-xl animate-in">Thank <span class="accent">You</span>.</h1>
+      <div class="author-block animate-in">
+        <div class="name">Todd Wardzinski</div>
+        <div>Architect · Red Hat</div>
+      </div>
+      <div class="logo-footer animate-in">
+        <svg class="rh-logo large" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 613 145" role="img" aria-label="Red Hat">
+          <title>Red Hat</title>
+          <path d="M127.47,83.49c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C124.89,8.69,103.76.5,97.51.5,91.69.5,90,8,83.06,8c-6.68,0-11.64-5.6-17.89-5.6-6,0-9.91,4.09-12.93,12.5,0,0-8.41,23.72-9.49,27.16A6.43,6.43,0,0,0,42.53,44c0,9.22,36.3,39.45,84.94,39.45M160,72.07c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C78.54,104,37.58,76.6,37.58,58.49a18.45,18.45,0,0,1,1.51-7.33C22.27,52,.5,55,.5,74.22c0,31.48,74.59,70.28,133.65,70.28,45.28,0,56.7-20.48,56.7-36.65,0-12.72-11-27.16-30.83-35.78" fill="#e00"/>
+          <path d="M160,72.07c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C78.54,104,37.58,76.6,37.58,58.49a18.45,18.45,0,0,1,1.51-7.33l3.66-9.06A6.43,6.43,0,0,0,42.53,44c0,9.22,36.3,39.45,84.94,39.45,12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42Z"/>
+          <path d="M579.74,92.8c0,11.89,7.15,17.67,20.19,17.67a52.11,52.11,0,0,0,11.89-1.68V95a24.84,24.84,0,0,1-7.68,1.16c-5.37,0-7.36-1.68-7.36-6.73V68.3h15.56V54.1H596.78v-18l-17,3.68V54.1H568.49V68.3h11.25Zm-53,.32c0-3.68,3.69-5.47,9.26-5.47a43.12,43.12,0,0,1,10.1,1.26v7.15a21.51,21.51,0,0,1-10.63,2.63c-5.46,0-8.73-2.1-8.73-5.57m5.2,17.56c6,0,10.84-1.26,15.36-4.31v3.37h16.82V74.08c0-13.56-9.14-21-24.39-21-8.52,0-16.94,2-26,6.1l6.1,12.52c6.52-2.74,12-4.42,16.83-4.42,7,0,10.62,2.73,10.62,8.31v2.73a49.53,49.53,0,0,0-12.62-1.58c-14.31,0-22.93,6-22.93,16.73,0,9.78,7.78,17.24,20.19,17.24m-92.44-.94h18.09V80.92h30.29v28.82H506V36.12H487.93V64.41H457.64V36.12H439.55ZM370.62,81.87c0-8,6.31-14.1,14.62-14.1A17.22,17.22,0,0,1,397,72.09V91.54A16.36,16.36,0,0,1,385.24,96c-8.2,0-14.62-6.1-14.62-14.09m26.61,27.87h16.83V32.44l-17,3.68V57.05a28.3,28.3,0,0,0-14.2-3.68c-16.19,0-28.92,12.51-28.92,28.5a28.25,28.25,0,0,0,28.4,28.6,25.12,25.12,0,0,0,14.93-4.83ZM320,67c5.36,0,9.88,3.47,11.67,8.83H308.47C310.15,70.3,314.36,67,320,67M291.33,82c0,16.2,13.25,28.82,30.28,28.82,9.36,0,16.2-2.53,23.25-8.42l-11.26-10c-2.63,2.74-6.52,4.21-11.14,4.21a14.39,14.39,0,0,1-13.68-8.83h39.65V83.55c0-17.67-11.88-30.39-28.08-30.39a28.57,28.57,0,0,0-29,28.81M262,51.58c6,0,9.36,3.78,9.36,8.31S268,68.2,262,68.2H244.11V51.58Zm-36,58.16h18.09V82.92h13.77l13.89,26.82H292l-16.2-29.45a22.27,22.27,0,0,0,13.88-20.72c0-13.25-10.41-23.45-26-23.45H226Z" fill="#fff"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="controls">
+    <div class="nav-hint">← → or click to navigate · N for additional context</div>
+    <div class="progress"><span class="current">1</span> / <span class="total">11</span></div>
+  </div>
+
+  <div class="notes-panel"></div>
+
+  <script>
+    (function() {
+      const slides = document.querySelectorAll('.slide');
+      const currentEl = document.querySelector('.current');
+      const totalEl = document.querySelector('.total');
+      const notesPanel = document.querySelector('.notes-panel');
+      let idx = 0;
+      let notesVisible = false;
+
+      totalEl.textContent = slides.length;
+
+      function pauseAllMedia() {
+        document.querySelectorAll('.slide:not(.active) video').forEach(v => v.pause());
+        document.querySelectorAll('.slide:not(.active) iframe').forEach(f => {
+          f.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+          f.contentWindow.postMessage('{"method":"pause"}', '*');
+        });
+      }
+
+      function playActiveMedia() {
+        document.querySelectorAll('.slide.active video').forEach(v => v.play());
+        document.querySelectorAll('.slide.active iframe').forEach(f => {
+          f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+          f.contentWindow.postMessage('{"method":"play"}', '*');
+        });
+      }
+
+      function show(i) {
+        slides.forEach((s, j) => {
+          s.classList.toggle('active', j === i);
+          s.style.display = j === i ? 'flex' : 'none';
+        });
+        currentEl.textContent = i + 1;
+        pauseAllMedia();
+        playActiveMedia();
+        if (notesVisible && notesPanel) {
+          const note = slides[i].dataset.notes || '';
+          notesPanel.innerHTML = note;
+        }
+      }
+
+      function next() { if (idx < slides.length - 1) { idx++; show(idx); } }
+      function prev() { if (idx > 0) { idx--; show(idx); } }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+        if (e.key === 'ArrowLeft') { prev(); }
+        if (e.key === 'n' || e.key === 'N') {
+          notesVisible = !notesVisible;
+          if (notesPanel) notesPanel.classList.toggle('visible', notesVisible);
+          show(idx);
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.controls') || e.target.closest('.notes-panel') || e.target.closest('.video-container') || e.target.closest('.media-container')) return;
+        const x = e.clientX / window.innerWidth;
+        x > 0.5 ? next() : prev();
+      });
+
+      let touchStartX = 0;
+      document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+      document.addEventListener('touchend', (e) => {
+        const diff = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); }
+      });
+
+      window.addEventListener('beforeprint', () => {
+        slides.forEach(s => { s.style.display = ''; });
+        document.body.classList.add('printing');
+
+        slides.forEach(s => {
+          let fit = s.querySelector(':scope > .slide-fit');
+          if (!fit) {
+            fit = document.createElement('div');
+            fit.className = 'slide-fit';
+            while (s.firstChild) fit.appendChild(s.firstChild);
+            s.appendChild(fit);
+          }
+          const cs = window.getComputedStyle(s);
+          fit.style.cssText =
+            'display:flex;width:100%;height:100%;' +
+            'flex-direction:' + (cs.flexDirection || 'column') + ';' +
+            'justify-content:' + (cs.justifyContent || 'center') + ';' +
+            'align-items:' + (cs.alignItems || 'stretch') + ';' +
+            'text-align:' + (cs.textAlign || 'left') + ';' +
+            'gap:' + (cs.gap || '0') + ';' +
+            'transform-origin:top left;transform:none;';
+          for (let i = 0; i < fit.children.length; i++) {
+            fit.children[i].style.flexShrink = '0';
+          }
+
+          s._priorStyle = s.style.cssText;
+          s.style.cssText +=
+            ';display:flex !important;width:13.33in !important;height:7.5in !important;' +
+            'padding:0.55in 0.85in !important;box-sizing:border-box !important;' +
+            'overflow:hidden !important;';
+
+          const cw = fit.clientWidth, ch = fit.clientHeight;
+          const sw = fit.scrollWidth, sh = fit.scrollHeight;
+          if (sw > cw + 1 || sh > ch + 1) {
+            const k = Math.min(cw / sw, ch / sh);
+            fit.style.width  = (cw / k) + 'px';
+            fit.style.height = (ch / k) + 'px';
+            fit.style.transform = 'scale(' + k + ')';
+            fit.dataset.fitScale = k.toFixed(3);
+          }
+        });
+      });
+
+      window.addEventListener('afterprint', () => {
+        document.body.classList.remove('printing');
+        document.querySelectorAll('.slide > .slide-fit').forEach(fit => {
+          const s = fit.parentElement;
+          while (fit.firstChild) {
+            const child = fit.firstChild;
+            if (child.style && child.style.flexShrink) child.style.flexShrink = '';
+            s.appendChild(child);
+          }
+          fit.remove();
+          if (s._priorStyle !== undefined) {
+            s.style.cssText = s._priorStyle;
+            delete s._priorStyle;
+          }
+        });
+        show(idx);
+      });
+
+      show(0);
+    })();
+  </script>
+</body>
+</html>
